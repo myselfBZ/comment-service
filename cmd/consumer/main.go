@@ -13,6 +13,7 @@ const(
 var CONSUMER_CONN sarama.PartitionConsumer
 
 type Consumer struct{
+    signal  chan struct{}
     err     chan error
     msg     chan string
     conn    sarama.PartitionConsumer 
@@ -21,14 +22,17 @@ type Consumer struct{
 
 func(c *Consumer) run() {
 
-    for{
+    go func(){for{
         select{
             case msg := <- c.msg:
                 log.Println("message recieved: ", msg)
             case err := <- c.err:
                 log.Println("error recieved: ", err)
         }
-    }
+    }}()
+    go c.errorLoop()
+    go c.messageLoop()   
+    <-c.signal
 }
 
 func (c *Consumer) errorLoop(){
@@ -70,10 +74,6 @@ func init(){
 
 func main(){
     c := NewConsumer(CONSUMER_CONN)
-    done := make(chan struct{})
-    go c.run()
-    go c.errorLoop()
-    go c.messageLoop()   
-    <- done
+    c.run()
     log.Print("consumer started")
 }
